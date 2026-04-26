@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -7,7 +7,8 @@ import MessageBoard from './pages/MessageBoard'
 import SchedulePage from './pages/SchedulePage'
 import AdminApprovalPage from './pages/AdminApprovalPage'
 
-// 分頁設定（管理員審核只有 Level 3 看得到）
+const LEVEL_LABELS = { 1: '牛馬', 2: '社畜', 3: '管理員' }
+
 function getTabs(level) {
   const tabs = [
     { id: 'schedule', label: '班表' },
@@ -17,12 +18,74 @@ function getTabs(level) {
   return tabs
 }
 
+async function fetchUserData(user) {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('level, name')
+    .eq('id', user.id)
+    .single()
+
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('id, name, badge_number, title')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (employee) {
+    const level = profile?.level ?? 1
+    return {
+      user,
+      level,
+      levelLabel: LEVEL_LABELS[level] ?? '未知',
+      name: employee.name,
+      status: 'approved',
+    }
+  }
+
+  const { data: reg } = await supabase
+    .from('pending_registrations')
+    .select('status')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+
+  if (!reg && profile?.level >= 3) {
+    return {
+      user,
+      level: profile.level,
+      levelLabel: LEVEL_LABELS[profile.level] ?? '管理員',
+      name: profile.name || user.email.split('@')[0],
+      status: 'approved',
+    }
+  }
+
+  return {
+    user,
+    level: profile?.level ?? 1,
+    levelLabel: LEVEL_LABELS[profile?.level ?? 1] ?? '未知',
+    name: profile?.name || user.email.split('@')[0],
+    status: reg?.status ?? 'none',
+  }
+}
+
 function App() {
-  const [page, setPage]           = useState('login')   // 'login' | 'register'
+  const [page, setPage]           = useState('loading')
   const [currentUser, setCurrentUser] = useState(null)
   const [activeTab, setActiveTab] = useState('schedule')
 
-  function handleLogin(userData) {
+  // 啟動時檢查是否已有登入 session
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const userData = await fetchUserData(session.user)
+        setCurrentUser(userData)
+        setPage('app')
+      } else {
+        setPage('login')
+      }
+    })
+  }, [])
+
+  async function handleLogin(userData) {
     setCurrentUser(userData)
     setPage('app')
   }
@@ -31,6 +94,15 @@ function App() {
     await supabase.auth.signOut()
     setCurrentUser(null)
     setPage('login')
+  }
+
+  // ── 載入中 ──
+  if (page === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">載入中...</p>
+      </div>
+    )
   }
 
   // ── 登入頁 ──
@@ -61,7 +133,7 @@ function App() {
       {/* 頂部導覽列 */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <span className="font-semibold text-gray-900 text-sm">員工內網</span>
+          <span className="font-semibold text-gray-900 text-sm">三大二中員工內網系統</span>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500 hidden sm:inline">{currentUser?.name}</span>
             <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2.5 py-1 rounded-full">
