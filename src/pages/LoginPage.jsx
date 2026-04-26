@@ -96,8 +96,8 @@ export default function LoginPage({ onLogin, onRegister }) {
                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900">三大二中員工內網系統</h1>
-          <p className="text-gray-500 mt-1 text-sm">請使用公司帳號登入</p>
+          <h1 className="text-2xl font-semibold text-gray-900">三大二中內網系統</h1>
+          <p className="text-gray-500 mt-1 text-sm">請註冊帳號並經管理員核後登入</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
