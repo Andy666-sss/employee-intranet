@@ -6,6 +6,7 @@ import PendingPage from './pages/PendingPage'
 import MessageBoard from './pages/MessageBoard'
 import SchedulePage from './pages/SchedulePage'
 import AdminApprovalPage from './pages/AdminApprovalPage'
+import KnowledgeBasePage from './pages/KnowledgeBasePage'
 
 const LEVEL_LABELS = { 1: '牛馬', 2: '社畜', 3: '管理員' }
 
@@ -14,6 +15,7 @@ function getTabs(level) {
     { id: 'schedule', label: '班表' },
     { id: 'messages', label: '心情留言板' },
   ]
+  if (level >= 2) tabs.push({ id: 'knowledge', label: '業務資料庫' })
   if (level >= 3) tabs.push({ id: 'admin', label: '帳號審核' })
   return tabs
 }
@@ -168,9 +170,10 @@ function App() {
       </header>
 
       <main className="w-full">
-        {activeTab === 'schedule' && <SchedulePage currentUser={currentUser} />}
-        {activeTab === 'messages' && <MessageBoard currentUser={currentUser} />}
-        {activeTab === 'admin'    && <AdminApprovalPage />}
+        {activeTab === 'schedule'   && <SchedulePage currentUser={currentUser} />}
+        {activeTab === 'messages'   && <MessageBoard currentUser={currentUser} />}
+        {activeTab === 'knowledge'  && <KnowledgeBasePage currentUser={currentUser} />}
+        {activeTab === 'admin'      && <AdminApprovalPage />}
       </main>
     </div>
   )
