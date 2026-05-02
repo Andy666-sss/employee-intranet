@@ -13,6 +13,9 @@ export default function AdminApprovalPage() {
   const [newPassword, setNewPassword] = useState('')
   const [resetMsg, setResetMsg]       = useState('')
 
+  // 解除鎖定
+  const [unlockingId, setUnlockingId] = useState(null)
+
   useEffect(() => {
     fetchPending()
     fetchUsers()
@@ -67,13 +70,26 @@ export default function AdminApprovalPage() {
   // ── 已核准使用者 ────────────────────────────────────────
   async function fetchUsers() {
     setLoadingUsers(true)
-    // 從 profiles 取得已有帳號的使用者（level + name）
+    // 從 profiles 取得已有帳號的使用者（level + name + 鎖定狀態）
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, level, name')
+      .select('id, level, name, is_locked')
       .order('level', { ascending: false })
     setUsers(profiles || [])
     setLoadingUsers(false)
+  }
+
+  // ── 解除帳號鎖定 ────────────────────────────────────────
+  async function handleUnlockAccount(userId, userName) {
+    if (!window.confirm(`確定要解除 ${userName} 的帳號鎖定嗎？`)) return
+    setUnlockingId(userId)
+    const { error } = await supabase.rpc('unlock_account', { target_user_id: userId })
+    if (error) {
+      alert('解除鎖定失敗：' + error.message)
+    } else {
+      await fetchUsers()
+    }
+    setUnlockingId(null)
   }
 
   // ── 重設密碼 ────────────────────────────────────────────
@@ -169,19 +185,35 @@ export default function AdminApprovalPage() {
         ) : (
           <ul className="space-y-2">
             {users.map((u) => (
-              <li key={u.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <li key={u.id} className={`bg-white rounded-xl border px-4 py-3 flex items-center justify-between ${u.is_locked ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm font-medium text-gray-800">{u.name || '未設定姓名'}</span>
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                     Lv{u.level}・{LEVEL_LABELS[u.level] ?? '未知'}
                   </span>
+                  {u.is_locked && (
+                    <span className="text-xs bg-red-100 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-medium">
+                      🔒 已鎖定
+                    </span>
+                  )}
                 </div>
-                <button
-                  onClick={() => { setResetTarget({ user_id: u.id, name: u.name }); setNewPassword(''); setResetMsg('') }}
-                  className="text-xs text-gray-400 hover:text-blue-600 cursor-pointer transition border border-gray-200 hover:border-blue-300 px-3 py-1 rounded-lg"
-                >
-                  重設密碼
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  {u.is_locked && (
+                    <button
+                      onClick={() => handleUnlockAccount(u.id, u.name || '未設定姓名')}
+                      disabled={unlockingId === u.id}
+                      className="text-xs text-white bg-red-500 hover:bg-red-600 disabled:bg-red-300 cursor-pointer transition px-3 py-1 rounded-lg"
+                    >
+                      {unlockingId === u.id ? '處理中...' : '解除鎖定'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setResetTarget({ user_id: u.id, name: u.name }); setNewPassword(''); setResetMsg('') }}
+                    className="text-xs text-gray-400 hover:text-blue-600 cursor-pointer transition border border-gray-200 hover:border-blue-300 px-3 py-1 rounded-lg"
+                  >
+                    重設密碼
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

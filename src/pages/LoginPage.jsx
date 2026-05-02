@@ -18,25 +18,50 @@ export default function LoginPage({ onLogin, onRegister }) {
     setLoading(true)
     setError('')
 
+    const username = email.trim()
     // 帳號若不含 @ 則補上假網域（自訂帳號用）
-    const loginEmail = email.includes('@') ? email : `${email}@intranet.app`
+    const loginEmail = username.includes('@') ? username : `${username}@intranet.app`
 
-    // 1. Auth 登入
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
-    if (authError) {
-      setError('帳號或密碼錯誤，請再試一次。')
+    // 1. 直接查 login_attempts 表確認是否已被鎖定（anon 可讀，不需 RPC）
+    const { data: attemptRow } = await supabase
+      .from('login_attempts')
+      .select('is_locked, attempts')
+      .eq('username', username)
+      .maybeSingle()
+
+    if (attemptRow?.is_locked) {
+      setError('此帳號已因多次登入失敗而被鎖定，請聯絡管理員解除。')
       setLoading(false)
       return
     }
 
-    // 2. 取得 profiles（level）
+    // 2. Auth 登入
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
+    if (authError) {
+      // 記錄失敗次數（RPC 做原子性 UPSERT + 自動鎖定）
+      const { data: failResult } = await supabase.rpc('record_login_failure', { p_username: username })
+      if (failResult?.is_locked) {
+        setError('登入失敗次數過多，帳號已被鎖定，請聯絡管理員解除。')
+      } else if (failResult?.attempts === 4) {
+        setError('帳號或密碼錯誤，再錯 1 次將自動鎖定帳號。')
+      } else {
+        setError('帳號或密碼錯誤，請再試一次。')
+      }
+      setLoading(false)
+      return
+    }
+
+    // 3. 登入成功 → 清除失敗計數
+    await supabase.rpc('record_login_success', { p_user_id: authData.user.id })
+
+    // 4. 取得 profiles（level）
     const { data: profile } = await supabase
       .from('profiles')
       .select('level, name')
       .eq('id', authData.user.id)
       .single()
 
-    // 3. 確認是否已核准（employees.user_id 是否有對應）
+    // 5. 確認是否已核准（employees.user_id 是否有對應）
     const { data: employee } = await supabase
       .from('employees')
       .select('id, name, badge_number, title')

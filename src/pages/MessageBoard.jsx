@@ -16,6 +16,7 @@ export default function MessageBoard({ currentUser }) {
   const [replyContent, setReplyContent]     = useState('')
   const [replyAnonymous, setReplyAnonymous] = useState(false)
   const [replyLoading, setReplyLoading]     = useState(false)
+  const [deletingId, setDeletingId]         = useState(null)
 
   useEffect(() => { fetchMessages() }, [])
 
@@ -65,6 +66,30 @@ export default function MessageBoard({ currentUser }) {
     if (error) { setError('送出失敗，請再試一次。') }
     else { setContent(''); setIsAnonymous(false); await fetchMessages() }
     setLoading(false)
+  }
+
+  // 判斷目前使用者是否有刪除此則留言的權限
+  function canDelete(msg) {
+    const isOwner = msg?.user_id && String(msg.user_id) === String(currentUser?.user?.id)
+    const isAdmin = (currentUser?.level ?? 0) >= 3
+    return isOwner || isAdmin
+  }
+
+  async function handleDelete(msgId, isParent) {
+    if (!window.confirm('確定要刪除這則留言嗎？')) return
+    setDeletingId(msgId)
+
+    // 若為主留言，先刪除所有回覆
+    if (isParent) {
+      await supabase.from('messages').delete().eq('parent_id', msgId)
+    }
+    const { error } = await supabase.from('messages').delete().eq('id', msgId)
+    if (error) {
+      alert('刪除失敗：' + error.message)
+    } else {
+      await fetchMessages()
+    }
+    setDeletingId(null)
   }
 
   async function handleReply(parentId) {
@@ -214,6 +239,17 @@ export default function MessageBoard({ currentUser }) {
                           {isExpanded ? '收起回覆' : `查看 ${replies.length} 則回覆`}
                         </button>
                       )}
+
+                      {canDelete(msg) && (
+                        <button
+                          onClick={() => handleDelete(msg.id, true)}
+                          disabled={deletingId === msg.id}
+                          style={{ color: '#ef4444', fontSize: '12px', fontWeight: 500, cursor: 'pointer', marginLeft: 'auto', background: 'none', border: 'none', padding: '2px 6px' }}
+                          title="刪除留言"
+                        >
+                          {deletingId === msg.id ? '刪除中...' : '刪除'}
+                        </button>
+                      )}
                     </div>
 
                     {/* 展開的回覆列表 */}
@@ -237,7 +273,19 @@ export default function MessageBoard({ currentUser }) {
                                     <span className="text-[10px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded-full">後台可見真名</span>
                                   )}
                                 </div>
-                                <time className="text-[10px] text-gray-400 shrink-0">{formatTime(reply.created_at)}</time>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <time className="text-[10px] text-gray-400">{formatTime(reply.created_at)}</time>
+                                  {canDelete(reply) && (
+                                    <button
+                                      onClick={() => handleDelete(reply.id, false)}
+                                      disabled={deletingId === reply.id}
+                                      style={{ color: '#ef4444', fontSize: '10px', fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', padding: '2px 4px' }}
+                                      title="刪除回覆"
+                                    >
+                                      {deletingId === reply.id ? '刪除中...' : '刪除'}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed text-left">{reply.content}</p>
                             </div>
