@@ -15,7 +15,7 @@ function getTabs(level) {
     { id: 'schedule', label: '班表' },
     { id: 'messages', label: '心情留言板' },
   ]
-  if (level >= 2) tabs.push({ id: 'knowledge', label: '業務資料庫' })
+  if (level >= 1) tabs.push({ id: 'knowledge', label: '業務資料庫' })
   if (level >= 3) tabs.push({ id: 'admin', label: '帳號審核' })
   return tabs
 }
