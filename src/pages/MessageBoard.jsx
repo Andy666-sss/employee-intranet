@@ -130,7 +130,7 @@ export default function MessageBoard({ currentUser }) {
 
   return (
     <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
-    <div className="max-w-xl mx-auto px-4 py-8 space-y-4">
+    <div className="px-4 py-6 space-y-4" style={{ maxWidth: 680 }}>
       <div className="mb-2">
         <h2 className="text-xl font-bold" style={{ color: '#2C2C2C' }}>心情留言板</h2>
         <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>說說你的心情，匿名也可以</p>

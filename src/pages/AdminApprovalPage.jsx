@@ -123,7 +123,7 @@ export default function AdminApprovalPage() {
 
   return (
     <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
-    <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+    <div className="px-4 py-6 space-y-8" style={{ maxWidth: 720 }}>
       <div>
         <h2 className="text-xl font-bold" style={{ color: '#2C2C2C' }}>帳號審核</h2>
         <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>管理待審核申請與帳號設定</p>

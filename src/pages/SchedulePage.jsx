@@ -280,7 +280,7 @@ export default function SchedulePage({ currentUser }) {
 
   return (
     <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
-    <div className="px-6 py-8">
+    <div className="px-4 py-6">
       {/* 標題 + 月份切換 */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>

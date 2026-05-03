@@ -706,7 +706,7 @@ export default function KnowledgeBasePage({ currentUser }) {
 
   return (
     <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
-    <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="px-4 py-6">
 
       <div className="flex items-center justify-between mb-6">
         <div>
