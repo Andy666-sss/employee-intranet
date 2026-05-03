@@ -3,18 +3,18 @@ import { supabase } from '../lib/supabase'
 
 // ── 分類設定 ───────────────────────────────────────────────────
 const CATEGORIES = [
-  { name: '人事業務', bg: 'bg-blue-100',   text: 'text-blue-700'   },
-  { name: '警務業務', bg: 'bg-red-100',    text: 'text-red-700'    },
+  { name: '人事業務', bg: 'bg-blue-100', text: 'text-blue-700' },
+  { name: '警務業務', bg: 'bg-red-100', text: 'text-red-700' },
   { name: '督訓業務', bg: 'bg-orange-100', text: 'text-orange-700' },
-  { name: '後勤業務', bg: 'bg-green-100',  text: 'text-green-700'  },
-  { name: '教育業務', bg: 'bg-purple-100', text: 'text-purple-700' },
-  { name: '偵查業務', bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  { name: '行政業務', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  { name: '其他',     bg: 'bg-gray-100',   text: 'text-gray-600'   },
+  { name: '後勤業務', bg: 'bg-green-100', text: 'text-green-700' },
+  { name: '保防業務', bg: 'bg-purple-100', text: 'text-purple-700' },
+  { name: '秘書、資訊業務', bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  { name: '分隊長', bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  { name: '其他', bg: 'bg-gray-100', text: 'text-gray-600' },
 ]
 const CATEGORY_NAMES = CATEGORIES.map(c => c.name)
 const CATEGORY_STYLE = Object.fromEntries(CATEGORIES.map(c => [c.name, c]))
-const ACCEPT_TYPES   = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg'
+const ACCEPT_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg'
 
 // 從 Storage URL 取出原始檔名（去除時間戳前綴）
 function getFilename(url) {
@@ -23,12 +23,103 @@ function getFilename(url) {
   return raw.replace(/^\d+_/, '')
 }
 
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('zh-TW', {
+    year: 'numeric', month: 'numeric', day: 'numeric',
+  })
+}
+
+// ── 詳細資料 Modal ─────────────────────────────────────────────
+function DetailModal({ item, onClose }) {
+  const catStyle = CATEGORY_STYLE[item.category] || { bg: 'bg-gray-100', text: 'text-gray-600' }
+
+  // 按下 Backdrop 關閉
+  function handleBackdrop(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        onClick={handleBackdrop}
+      >
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg max-h-[88vh] flex flex-col">
+
+          {/* Header */}
+          <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0 gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${catStyle.bg} ${catStyle.text}`}>
+                  {item.category}
+                </span>
+                <time className="text-xs text-gray-400">{formatDate(item.created_at)}</time>
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 leading-snug">{item.title}</h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 cursor-pointer transition shrink-0 mt-0.5"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+
+            {/* 內容 */}
+            {item.description ? (
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {item.description}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">（無內容）</p>
+            )}
+
+            {/* 附件 */}
+            {item.file_url && (
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">附件</p>
+                <a
+                  href={item.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a3 3 0 016 0v4a3 3 0 11-6 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+                  </svg>
+                  {getFilename(item.file_url)}
+                </a>
+              </div>
+            )}
+
+            {/* 上傳者 */}
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs text-gray-400">
+                上傳者：
+                <span className="text-gray-600 font-medium ml-1">
+                  {item.uploader_name || '未知'}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── 上傳 Modal ─────────────────────────────────────────────────
-function UploadModal({ onClose, onSuccess }) {
-  const [title, setTitle]       = useState('')
-  const [content, setContent]   = useState('')
+function UploadModal({ currentUser, onClose, onSuccess }) {
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
   const [category, setCategory] = useState(CATEGORY_NAMES[0])
-  const [file, setFile]         = useState(null)
+  const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -46,7 +137,7 @@ function UploadModal({ onClose, onSuccess }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!title.trim())   { setErrorMsg('請填寫標題'); return }
+    if (!title.trim()) { setErrorMsg('請填寫標題'); return }
     if (!content.trim()) { setErrorMsg('請填寫內容'); return }
 
     setUploading(true)
@@ -55,7 +146,6 @@ function UploadModal({ onClose, onSuccess }) {
     try {
       let fileUrl = null
 
-      // 有選擇附件才上傳
       if (file) {
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
         const filePath = `${Date.now()}_${safeName}`
@@ -70,10 +160,11 @@ function UploadModal({ onClose, onSuccess }) {
       }
 
       const { error: dbError } = await supabase.from('knowledge_base').insert({
-        title:       title.trim(),
+        title: title.trim(),
         description: content.trim(),
         category,
-        file_url:    fileUrl,
+        file_url: fileUrl,
+        user_id: currentUser?.user?.id ?? null,
       })
       if (dbError) throw new Error('儲存失敗：' + dbError.message)
 
@@ -212,11 +303,12 @@ function UploadModal({ onClose, onSuccess }) {
 
 // ── 主組件 ────────────────────────────────────────────────────
 export default function KnowledgeBasePage({ currentUser }) {
-  const [items, setItems]                   = useState([])
-  const [fetching, setFetching]             = useState(true)
-  const [search, setSearch]                 = useState('')
+  const [items, setItems] = useState([])
+  const [fetching, setFetching] = useState(true)
+  const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('全部')
-  const [showUpload, setShowUpload]         = useState(false)
+  const [showUpload, setShowUpload] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
   const canUpload = (currentUser?.level ?? 0) >= 2
 
   useEffect(() => { fetchItems() }, [])
@@ -225,9 +317,27 @@ export default function KnowledgeBasePage({ currentUser }) {
     setFetching(true)
     const { data, error } = await supabase
       .from('knowledge_base')
-      .select('id, title, description, category, file_url, created_at')
+      .select('id, title, description, category, file_url, created_at, user_id')
       .order('created_at', { ascending: false })
-    if (!error) setItems(data || [])
+
+    if (!error && data) {
+      // 取得所有上傳者的姓名
+      const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))]
+      let nameMap = {}
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', userIds)
+        if (profiles) {
+          profiles.forEach(p => { nameMap[p.id] = p.name })
+        }
+      }
+      setItems(data.map(item => ({
+        ...item,
+        uploader_name: nameMap[item.user_id] || null,
+      })))
+    }
     setFetching(false)
   }
 
@@ -241,12 +351,6 @@ export default function KnowledgeBasePage({ currentUser }) {
       return matchSearch && matchCat
     })
   }, [items, search, activeCategory])
-
-  function formatDate(iso) {
-    return new Date(iso).toLocaleDateString('zh-TW', {
-      year: 'numeric', month: 'numeric', day: 'numeric',
-    })
-  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -326,7 +430,8 @@ export default function KnowledgeBasePage({ currentUser }) {
             return (
               <div
                 key={item.id}
-                className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-200 p-5"
+                onClick={() => setSelectedItem(item)}
+                className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 p-5 cursor-pointer"
               >
                 {/* 分類 + 日期 */}
                 <div className="flex items-center justify-between mb-3">
@@ -341,39 +446,48 @@ export default function KnowledgeBasePage({ currentUser }) {
                   {item.title}
                 </h3>
 
-                {/* 內容（主角） */}
+                {/* 內容預覽 */}
                 {item.description && (
                   <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap flex-1 line-clamp-5">
                     {item.description}
                   </p>
                 )}
 
-                {/* 附件（選填，置於底部） */}
-                {item.file_url && (
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <a
-                      href={item.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors font-medium"
-                    >
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a3 3 0 016 0v4a3 3 0 11-6 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
-                      </svg>
-                      <span className="truncate max-w-[180px]">{getFilename(item.file_url)}</span>
-                    </a>
+                {/* 底部：上傳者 + 附件圖示 */}
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-gray-400 truncate">
+                    {item.uploader_name ? `上傳者：${item.uploader_name}` : ''}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {item.file_url && (
+                      <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a3 3 0 016 0v4a3 3 0 11-6 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+                        </svg>
+                        附件
+                      </span>
+                    )}
+                    <span className="text-[11px] text-blue-400 font-medium">查看詳情 →</span>
                   </div>
-                )}
+                </div>
               </div>
             )
           })}
         </div>
       )}
 
+      {/* ── 詳細資料 Modal ── */}
+      {selectedItem && (
+        <DetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+
       {/* ── 上傳 Modal ── */}
       {showUpload && (
         <UploadModal
+          currentUser={currentUser}
           onClose={() => setShowUpload(false)}
           onSuccess={() => { setShowUpload(false); fetchItems() }}
         />
