@@ -45,7 +45,10 @@ function DetailModal({ item, onClose }) {
         className="fixed inset-0 z-50 flex items-center justify-center px-4"
         onClick={handleBackdrop}
       >
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg max-h-[88vh] flex flex-col">
+        <div
+          className="bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col"
+          style={{ width: '66vw', height: '66vh', minWidth: '320px', maxWidth: '860px' }}
+        >
 
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0 gap-3">
@@ -56,7 +59,7 @@ function DetailModal({ item, onClose }) {
                 </span>
                 <time className="text-xs text-gray-400">{formatDate(item.created_at)}</time>
               </div>
-              <h3 className="text-base font-semibold text-gray-900 leading-snug">{item.title}</h3>
+              <h3 className="text-base font-semibold text-gray-900 leading-snug text-left">{item.title}</h3>
             </div>
             <button
               onClick={onClose}
@@ -68,22 +71,22 @@ function DetailModal({ item, onClose }) {
             </button>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+          {/* Body：只能上下捲動，禁止左右捲動 */}
+          <div className="px-6 py-5 overflow-y-auto overflow-x-hidden flex-1 space-y-5">
 
             {/* 內容 */}
             {item.description ? (
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words text-left w-full">
                 {item.description}
               </p>
             ) : (
-              <p className="text-sm text-gray-400 italic">（無內容）</p>
+              <p className="text-sm text-gray-400 italic text-left">（無內容）</p>
             )}
 
             {/* 附件 */}
             {item.file_url && (
               <div className="border-t border-gray-100 pt-4">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">附件</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 text-left">附件</p>
                 <a
                   href={item.file_url}
                   target="_blank"
@@ -93,14 +96,14 @@ function DetailModal({ item, onClose }) {
                   <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a3 3 0 016 0v4a3 3 0 11-6 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
                   </svg>
-                  {getFilename(item.file_url)}
+                  <span className="break-all">{getFilename(item.file_url)}</span>
                 </a>
               </div>
             )}
 
             {/* 上傳者 */}
             <div className="border-t border-gray-100 pt-4">
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 text-left">
                 上傳者：
                 <span className="text-gray-600 font-medium ml-1">
                   {item.uploader_name || '未知'}
