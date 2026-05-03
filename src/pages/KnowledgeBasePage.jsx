@@ -23,17 +23,31 @@ function getFilename(url) {
   return raw.replace(/^\d+_/, '')
 }
 
+// 從公開 URL 取出 Storage 路徑（用於刪除）
+function getStoragePath(url) {
+  if (!url) return null
+  const parts = url.split('/business_files/')
+  return parts.length > 1 ? decodeURIComponent(parts[1].split('?')[0]) : null
+}
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('zh-TW', {
     year: 'numeric', month: 'numeric', day: 'numeric',
   })
 }
 
-// ── 詳細資料 Modal ─────────────────────────────────────────────
-function DetailModal({ item, onClose }) {
-  const catStyle = CATEGORY_STYLE[item.category] || { bg: 'bg-gray-100', text: 'text-gray-600' }
+// 判斷是否有編輯/刪除權限
+function canModify(item, currentUser) {
+  const isOwner = item?.user_id && String(item.user_id) === String(currentUser?.user?.id)
+  const isAdmin = (currentUser?.level ?? 0) >= 3
+  return isOwner || isAdmin
+}
 
-  // 按下 Backdrop 關閉
+// ── 詳細資料 Modal ─────────────────────────────────────────────
+function DetailModal({ item, currentUser, onClose, onEdit, onDelete }) {
+  const catStyle = CATEGORY_STYLE[item.category] || { bg: 'bg-gray-100', text: 'text-gray-600' }
+  const canAct = canModify(item, currentUser)
+
   function handleBackdrop(e) {
     if (e.target === e.currentTarget) onClose()
   }
@@ -49,7 +63,6 @@ function DetailModal({ item, onClose }) {
           className="bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col"
           style={{ width: '66vw', height: '66vh', minWidth: '320px', maxWidth: '860px' }}
         >
-
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0 gap-3">
             <div className="flex-1 min-w-0">
@@ -71,10 +84,8 @@ function DetailModal({ item, onClose }) {
             </button>
           </div>
 
-          {/* Body：只能上下捲動，禁止左右捲動 */}
+          {/* Body */}
           <div className="px-6 py-5 overflow-y-auto overflow-x-hidden flex-1 space-y-5">
-
-            {/* 內容 */}
             {item.description ? (
               <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words text-left w-full">
                 {item.description}
@@ -83,7 +94,6 @@ function DetailModal({ item, onClose }) {
               <p className="text-sm text-gray-400 italic text-left">（無內容）</p>
             )}
 
-            {/* 附件 */}
             {item.file_url && (
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 text-left">附件</p>
@@ -101,16 +111,278 @@ function DetailModal({ item, onClose }) {
               </div>
             )}
 
-            {/* 上傳者 */}
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs text-gray-400 text-left">
                 上傳者：
-                <span className="text-gray-600 font-medium ml-1">
-                  {item.uploader_name || '未知'}
-                </span>
+                <span className="text-gray-600 font-medium ml-1">{item.uploader_name || '未知'}</span>
               </p>
             </div>
           </div>
+
+          {/* Footer：編輯 / 刪除（有權限才顯示） */}
+          {canAct && (
+            <div className="px-6 py-4 border-t border-gray-100 shrink-0 flex items-center justify-end gap-2">
+              <button
+                onClick={onEdit}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                編輯
+              </button>
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg cursor-pointer transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                刪除
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── 編輯 Modal ─────────────────────────────────────────────────
+function EditModal({ item, onClose, onSuccess }) {
+  const [title, setTitle] = useState(item.title || '')
+  const [content, setContent] = useState(item.description || '')
+  const [category, setCategory] = useState(item.category || CATEGORY_NAMES[0])
+  const [newFile, setNewFile] = useState(null)       // 新附件（若選擇替換）
+  const [removeFile, setRemoveFile] = useState(false) // 勾選後移除現有附件
+  const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const hasExistingFile = !!item.file_url && !removeFile
+
+  function handleFileChange(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    if (f.size > 20 * 1024 * 1024) {
+      setErrorMsg('檔案大小不可超過 20MB')
+      e.target.value = ''
+      return
+    }
+    setNewFile(f)
+    setRemoveFile(false)
+    setErrorMsg('')
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!title.trim()) { setErrorMsg('請填寫標題'); return }
+    if (!content.trim()) { setErrorMsg('請填寫內容'); return }
+
+    setSaving(true)
+    setErrorMsg('')
+
+    try {
+      let fileUrl = item.file_url // 預設保留原附件
+
+      // 上傳新附件
+      if (newFile) {
+        const safeName = newFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+        const filePath = `${Date.now()}_${safeName}`
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('business_files')
+          .upload(filePath, newFile, { upsert: false })
+        if (storageError) throw new Error('附件上傳失敗：' + storageError.message)
+
+        // 刪除舊附件（忽略錯誤，繼續流程）
+        if (item.file_url) {
+          const oldPath = getStoragePath(item.file_url)
+          if (oldPath) await supabase.storage.from('business_files').remove([oldPath])
+        }
+
+        const { data: urlData } = supabase.storage.from('business_files').getPublicUrl(storageData.path)
+        fileUrl = urlData.publicUrl
+      }
+
+      // 移除附件（不替換）
+      if (removeFile && !newFile) {
+        if (item.file_url) {
+          const oldPath = getStoragePath(item.file_url)
+          if (oldPath) await supabase.storage.from('business_files').remove([oldPath])
+        }
+        fileUrl = null
+      }
+
+      const { error: dbError } = await supabase
+        .from('knowledge_base')
+        .update({
+          title: title.trim(),
+          description: content.trim(),
+          category,
+          file_url: fileUrl,
+        })
+        .eq('id', item.id)
+
+      if (dbError) throw new Error('更新失敗：' + dbError.message)
+      onSuccess()
+    } catch (err) {
+      setErrorMsg(err.message || '發生錯誤，請再試一次')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-60" onClick={onClose} />
+      <div className="fixed inset-0 z-70 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg max-h-[92vh] flex flex-col">
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+            <h3 className="text-base font-semibold text-gray-900">編輯業務資料</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer transition">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Body */}
+          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+
+            {/* 標題 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                標題 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                maxLength={100}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            {/* 分類 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                分類 <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition cursor-pointer"
+              >
+                {CATEGORY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* 內容 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                內容 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={7}
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none leading-relaxed"
+              />
+              <p className="text-xs text-gray-400 mt-1 text-right">{content.length} 字</p>
+            </div>
+
+            {/* 附件 */}
+            <div className="border-t border-gray-100 pt-4 space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                附件
+                <span className="ml-1.5 text-xs text-gray-400 font-normal">（選填）</span>
+              </label>
+
+              {/* 現有附件 */}
+              {item.file_url && !newFile && (
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                  <span className="text-xs text-gray-600 truncate max-w-[240px]">
+                    目前：{getFilename(item.file_url)}
+                  </span>
+                  {!removeFile ? (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveFile(true)}
+                      className="text-xs text-red-500 hover:text-red-700 cursor-pointer shrink-0 ml-2 transition"
+                    >
+                      移除
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveFile(false)}
+                      className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer shrink-0 ml-2 transition"
+                    >
+                      復原
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {removeFile && (
+                <p className="text-xs text-red-500">附件將在儲存後移除</p>
+              )}
+
+              {/* 上傳新附件 */}
+              {!removeFile && (
+                <>
+                  <input
+                    type="file"
+                    accept={ACCEPT_TYPES}
+                    onChange={handleFileChange}
+                    className="w-full text-sm text-gray-600 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 file:cursor-pointer border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50"
+                  />
+                  {item.file_url && (
+                    <p className="text-xs text-gray-400">選擇新檔案將替換現有附件</p>
+                  )}
+                  {newFile && (
+                    <p className="text-xs text-blue-600 font-medium">
+                      新附件：{newFile.name}（{(newFile.size / 1024 / 1024).toFixed(2)} MB）
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* 錯誤訊息 */}
+            {errorMsg && (
+              <div className="flex items-start gap-2 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                {errorMsg}
+              </div>
+            )}
+
+            {/* 按鈕 */}
+            <div className="flex gap-3 pt-1">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 rounded-lg text-sm transition cursor-pointer disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    儲存中...
+                  </span>
+                ) : '儲存變更'}
+              </button>
+              <button type="button" onClick={onClose}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg text-sm transition cursor-pointer">
+                取消
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </>
@@ -185,7 +457,6 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg max-h-[92vh] flex flex-col">
 
-          {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
             <h3 className="text-base font-semibold text-gray-900">新增業務資料</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer transition">
@@ -195,10 +466,8 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
             </button>
           </div>
 
-          {/* Body */}
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
 
-            {/* 標題 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 標題 <span className="text-red-500">*</span>
@@ -213,7 +482,6 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
               />
             </div>
 
-            {/* 分類 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 分類 <span className="text-red-500">*</span>
@@ -227,7 +495,6 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
               </select>
             </div>
 
-            {/* 內容（主角） */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 內容 <span className="text-red-500">*</span>
@@ -242,7 +509,6 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
               <p className="text-xs text-gray-400 mt-1 text-right">{content.length} 字</p>
             </div>
 
-            {/* 附件（選填，置於底部） */}
             <div className="border-t border-gray-100 pt-4">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 附件
@@ -256,16 +522,12 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
               />
               <p className="text-xs text-gray-400 mt-1">PDF、Word、Excel、PPT、圖片，上限 20MB</p>
               {file && (
-                <p className="text-xs text-blue-600 mt-1.5 font-medium flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a3 3 0 016 0v4a3 3 0 11-6 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
-                  </svg>
+                <p className="text-xs text-blue-600 mt-1.5 font-medium">
                   {file.name}（{(file.size / 1024 / 1024).toFixed(2)} MB）
                 </p>
               )}
             </div>
 
-            {/* 錯誤訊息 */}
             {errorMsg && (
               <div className="flex items-start gap-2 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
                 <svg className="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -275,7 +537,6 @@ function UploadModal({ currentUser, onClose, onSuccess }) {
               </div>
             )}
 
-            {/* 按鈕 */}
             <div className="flex gap-3 pt-1">
               <button
                 type="submit"
@@ -312,6 +573,7 @@ export default function KnowledgeBasePage({ currentUser }) {
   const [activeCategory, setActiveCategory] = useState('全部')
   const [showUpload, setShowUpload] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
   const canUpload = (currentUser?.level ?? 0) >= 2
 
   useEffect(() => { fetchItems() }, [])
@@ -324,7 +586,6 @@ export default function KnowledgeBasePage({ currentUser }) {
       .order('created_at', { ascending: false })
 
     if (!error && data) {
-      // 取得所有上傳者的姓名
       const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))]
       let nameMap = {}
       if (userIds.length > 0) {
@@ -332,9 +593,7 @@ export default function KnowledgeBasePage({ currentUser }) {
           .from('profiles')
           .select('id, name')
           .in('id', userIds)
-        if (profiles) {
-          profiles.forEach(p => { nameMap[p.id] = p.name })
-        }
+        if (profiles) profiles.forEach(p => { nameMap[p.id] = p.name })
       }
       setItems(data.map(item => ({
         ...item,
@@ -342,6 +601,24 @@ export default function KnowledgeBasePage({ currentUser }) {
       })))
     }
     setFetching(false)
+  }
+
+  async function handleDelete(item) {
+    if (!window.confirm(`確定要刪除「${item.title}」嗎？此操作無法復原。`)) return
+
+    // 刪除 Storage 附件
+    if (item.file_url) {
+      const path = getStoragePath(item.file_url)
+      if (path) await supabase.storage.from('business_files').remove([path])
+    }
+
+    const { error } = await supabase.from('knowledge_base').delete().eq('id', item.id)
+    if (error) {
+      alert('刪除失敗：' + error.message)
+    } else {
+      setSelectedItem(null)
+      await fetchItems()
+    }
   }
 
   const filtered = useMemo(() => {
@@ -436,7 +713,6 @@ export default function KnowledgeBasePage({ currentUser }) {
                 onClick={() => setSelectedItem(item)}
                 className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 p-5 cursor-pointer"
               >
-                {/* 分類 + 日期 */}
                 <div className="flex items-center justify-between mb-3">
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${catStyle.bg} ${catStyle.text}`}>
                     {item.category}
@@ -444,19 +720,16 @@ export default function KnowledgeBasePage({ currentUser }) {
                   <time className="text-[11px] text-gray-400">{formatDate(item.created_at)}</time>
                 </div>
 
-                {/* 標題 */}
                 <h3 className="text-sm font-semibold text-gray-900 leading-snug mb-2">
                   {item.title}
                 </h3>
 
-                {/* 內容預覽 */}
                 {item.description && (
                   <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap flex-1 line-clamp-5">
                     {item.description}
                   </p>
                 )}
 
-                {/* 底部：上傳者 + 附件圖示 */}
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                   <span className="text-[11px] text-gray-400 truncate">
                     {item.uploader_name ? `上傳者：${item.uploader_name}` : ''}
@@ -480,10 +753,26 @@ export default function KnowledgeBasePage({ currentUser }) {
       )}
 
       {/* ── 詳細資料 Modal ── */}
-      {selectedItem && (
+      {selectedItem && !editingItem && (
         <DetailModal
           item={selectedItem}
+          currentUser={currentUser}
           onClose={() => setSelectedItem(null)}
+          onEdit={() => setEditingItem(selectedItem)}
+          onDelete={() => handleDelete(selectedItem)}
+        />
+      )}
+
+      {/* ── 編輯 Modal ── */}
+      {editingItem && (
+        <EditModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSuccess={async () => {
+            setEditingItem(null)
+            setSelectedItem(null)
+            await fetchItems()
+          }}
         />
       )}
 
