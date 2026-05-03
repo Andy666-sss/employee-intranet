@@ -112,20 +112,15 @@ function NavIcon({ name, active }) {
 // ── Logo ────────────────────────────────────────────────────────
 function Logo() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '24px 20px 20px' }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 10,
-        background: C.navy600,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
-        <svg width="20" height="20" fill="none" stroke="#fff" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      </div>
-      <div style={{ lineHeight: 1.2 }}>
-        <div style={{ color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>三大二中</div>
-        <div style={{ color: '#93B8D8', fontSize: 10, fontWeight: 500 }}>員工內網系統</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px 16px' }}>
+      <img
+        src="/logo.jfif"
+        alt="保安警察第一總隊員工內網"
+        style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}
+      />
+      <div style={{ color: '#fff', fontSize: 11, fontWeight: 600, textAlign: 'center', lineHeight: 1.4, letterSpacing: 0.3 }}>
+        保安警察第一總隊<br />
+        <span style={{ color: '#93B8D8', fontWeight: 400 }}>員工內網系統</span>
       </div>
     </div>
   )

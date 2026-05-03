@@ -115,14 +115,14 @@ export default function LoginPage({ onLogin, onRegister }) {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-900">三大二中內網系統</h1>
-          <p className="text-gray-500 mt-1 text-sm">請註冊帳號並經管理員核後登入</p>
+          <img
+            src="/logo.jfif"
+            alt="保安警察第一總隊員工內網"
+            className="w-28 h-28 rounded-full object-cover mx-auto mb-4"
+            style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+          />
+          <h1 className="text-2xl font-semibold text-gray-900">保安警察第一總隊</h1>
+          <p className="text-gray-500 mt-1 text-sm">員工內網系統・請登入以繼續</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
