@@ -167,19 +167,35 @@ function DetailModal({ item, currentUser, onClose, onEdit, onDelete }) {
   const canAct = canModify(item, currentUser)
   const entries = parseFileEntries(item.file_url)
   const isHtml = item.item_type === 'html'
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   function handleBackdrop(e) {
     if (e.target === e.currentTarget) onClose()
   }
 
+  // 全螢幕時按 Esc 退出
+  useEffect(() => {
+    if (!isFullscreen) return
+    function onKey(e) { if (e.key === 'Escape') setIsFullscreen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isFullscreen])
+
+  const modalStyle = isFullscreen
+    ? {}
+    : { width: '66vw', height: '66vh', minWidth: '320px', maxWidth: '860px' }
+  const modalClass = isFullscreen
+    ? 'bg-white flex flex-col fixed inset-0 z-50 shadow-2xl'
+    : 'bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col'
+
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={handleBackdrop}>
-        <div
-          className="bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col"
-          style={{ width: '66vw', height: '66vh', minWidth: '320px', maxWidth: '860px' }}
-        >
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={isFullscreen ? undefined : onClose} />
+      <div
+        className={isFullscreen ? 'fixed inset-0 z-50' : 'fixed inset-0 z-50 flex items-center justify-center px-4'}
+        onClick={isFullscreen ? undefined : handleBackdrop}
+      >
+        <div className={modalClass} style={modalStyle}>
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0 gap-3">
             <div className="flex-1 min-w-0">
@@ -196,20 +212,43 @@ function DetailModal({ item, currentUser, onClose, onEdit, onDelete }) {
               </div>
               <h3 className="text-base font-semibold text-gray-900 leading-snug text-left">{item.title}</h3>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer transition shrink-0 mt-0.5">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+              {/* 全螢幕切換（僅 HTML 模式顯示） */}
+              {isHtml && (
+                <button
+                  onClick={() => setIsFullscreen(f => !f)}
+                  title={isFullscreen ? '縮小（Esc）' : '全螢幕'}
+                  className="text-gray-400 hover:text-violet-600 cursor-pointer transition p-0.5"
+                >
+                  {isFullscreen ? (
+                    // 縮小圖示
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4m0 5H4m0 0l5-5M15 9h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5M15 15h5m-5 0v5m5-5l-5 5" />
+                    </svg>
+                  ) : (
+                    // 放大圖示
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  )}
+                </button>
+              )}
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer transition p-0.5">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Body */}
           {isHtml ? (
             // HTML 互動模式：整個 body 是 iframe
+            // allow-same-origin 讓 JS 能正常操作 DOM（tab 切換等），適用於內部信任內容
             <div className="flex-1 overflow-hidden">
               <iframe
                 srcdoc={item.description || '<p style="color:#999;font-family:sans-serif;padding:24px">（無內容）</p>'}
-                sandbox="allow-scripts"
+                sandbox="allow-scripts allow-same-origin"
                 className="w-full h-full border-0"
                 title={item.title}
               />
