@@ -57,6 +57,37 @@ function canModify(item, currentUser) {
   return isOwner || isAdmin
 }
 
+/**
+ * 在 HTML 內容前注入攔截腳本：
+ * - 阻止 href="#" / href="javascript:..." 的錨點觸發頁面導航
+ * - href="#sectionId" 改為在 iframe 內捲動到對應元素
+ * - onclick 事件（tab 切換邏輯）不受影響，照常執行
+ */
+function injectNavFix(html) {
+  const script = `<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a');
+    if (!a) return;
+    var href = (a.getAttribute('href') || '').trim();
+    if (!href || href === '#' || /^javascript/i.test(href)) {
+      e.preventDefault();
+    } else if (href.startsWith('#')) {
+      e.preventDefault();
+      try {
+        var el = document.querySelector(href);
+        if (el) el.scrollIntoView({behavior:'smooth'});
+      } catch(_) {}
+    }
+  }, true); // 捕獲階段：先於 onclick 阻止導航，但 onclick 仍會執行
+})();
+<\/script>`
+
+  if (html.includes('<head>')) return html.replace('<head>', '<head>' + script)
+  if (html.includes('<body>')) return html.replace('<body>', '<body>' + script)
+  return script + html
+}
+
 async function uploadFile(file) {
   const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
   const filePath = `${Date.now()}_${safeName}`
@@ -247,7 +278,7 @@ function DetailModal({ item, currentUser, onClose, onEdit, onDelete }) {
             // allow-same-origin 讓 JS 能正常操作 DOM（tab 切換等），適用於內部信任內容
             <div className="flex-1 overflow-hidden">
               <iframe
-                srcdoc={item.description || '<p style="color:#999;font-family:sans-serif;padding:24px">（無內容）</p>'}
+                srcdoc={injectNavFix(item.description || '<p style="color:#999;font-family:sans-serif;padding:24px">（無內容）</p>')}
                 sandbox="allow-scripts allow-same-origin"
                 className="w-full h-full border-0"
                 title={item.title}
