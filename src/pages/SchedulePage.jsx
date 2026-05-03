@@ -279,12 +279,13 @@ export default function SchedulePage({ currentUser }) {
   const W_DAY = 50   // 每日欄
 
   return (
-    <div className="px-4 py-6">
+    <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
+    <div className="px-6 py-8">
       {/* 標題 + 月份切換 */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">班表</h2>
-          <p className="text-xs text-gray-500 mt-1">點格子即可修改班別</p>
+          <h2 className="text-xl font-bold" style={{ color: '#2C2C2C' }}>班表</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>點格子即可修改班別</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap ml-auto">
           {/* 管理員專屬：上傳 / 下載 */}
@@ -484,6 +485,7 @@ export default function SchedulePage({ currentUser }) {
           </div>
         </>
       )}
+    </div>
     </div>
   )
 }

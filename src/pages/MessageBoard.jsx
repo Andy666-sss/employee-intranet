@@ -129,10 +129,15 @@ export default function MessageBoard({ currentUser }) {
   const myInitial = (currentUser.name?.[0] || '我').toUpperCase()
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 space-y-4">
+    <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
+    <div className="max-w-xl mx-auto px-4 py-8 space-y-4">
+      <div className="mb-2">
+        <h2 className="text-xl font-bold" style={{ color: '#2C2C2C' }}>心情留言板</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>說說你的心情，匿名也可以</p>
+      </div>
 
       {/* ── 發言框（頂部，Instagram 風格）── */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl px-4 py-3" style={{ border: '1px solid #E5E2DC', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
         <div className="flex items-start gap-3">
           {/* 自己的頭像 */}
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -340,6 +345,7 @@ export default function MessageBoard({ currentUser }) {
           })}
         </ul>
       )}
+    </div>
     </div>
   )
 }

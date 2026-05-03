@@ -705,16 +705,20 @@ export default function KnowledgeBasePage({ currentUser }) {
   }, [items, search, activeCategory])
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
+    <div className="max-w-5xl mx-auto px-6 py-8">
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">業務資料庫</h2>
-          <p className="text-sm text-gray-500 mt-0.5">共 {items.length} 筆資料</p>
+          <h2 className="text-xl font-bold" style={{ color: '#2C2C2C' }}>業務資料庫</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>共 {items.length} 筆資料</p>
         </div>
         {canUpload && (
           <button onClick={() => setShowUpload(true)}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition">
+            className="flex items-center gap-1.5 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition"
+            style={{ background: '#1B3A5C' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1E4D7B' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#1B3A5C' }}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -741,12 +745,10 @@ export default function KnowledgeBasePage({ currentUser }) {
       <div className="flex gap-2 flex-wrap mb-6">
         {['全部', ...CATEGORY_NAMES].map(cat => (
           <button key={cat} onClick={() => setActiveCategory(cat)}
-            className={[
-              'px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition border',
-              activeCategory === cat
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600',
-            ].join(' ')}>
+            className="px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition border"
+            style={activeCategory === cat
+              ? { background: '#1B3A5C', color: '#fff', borderColor: '#1B3A5C' }
+              : { background: '#fff', color: '#6B6B6B', borderColor: '#E5E2DC' }}>
             {cat}
           </button>
         ))}
@@ -769,12 +771,15 @@ export default function KnowledgeBasePage({ currentUser }) {
             const fileCount = isHtml ? 0 : parseFileEntries(item.file_url).length
             return (
               <div key={item.id} onClick={() => setSelectedItem(item)}
-                className={[
-                  'flex flex-col bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 p-5 cursor-pointer text-left',
-                  isHtml
-                    ? 'border-violet-200 hover:border-violet-300'
-                    : 'border-gray-200 hover:border-blue-200',
-                ].join(' ')}>
+                className="flex flex-col bg-white rounded-2xl transition-all duration-200 p-5 cursor-pointer text-left"
+                style={{
+                  border: `1px solid ${isHtml ? '#DDD6FE' : '#E5E2DC'}`,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  borderRadius: 14,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.11)'; e.currentTarget.style.borderColor = isHtml ? '#C4B5FD' : '#1B3A5C33' }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.07)'; e.currentTarget.style.borderColor = isHtml ? '#DDD6FE' : '#E5E2DC' }}
+              >
 
                 {/* 分類 + 類型標籤 + 日期 */}
                 <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
@@ -829,7 +834,7 @@ export default function KnowledgeBasePage({ currentUser }) {
                         附件{fileCount > 1 ? ` ${fileCount}` : ''}
                       </span>
                     )}
-                    <span className={`text-[11px] font-medium ${isHtml ? 'text-violet-400' : 'text-blue-400'}`}>
+                    <span className="text-[11px] font-medium" style={{ color: isHtml ? '#7C3AED' : '#2563A8' }}>
                       {isHtml ? '預覽 →' : '查看詳情 →'}
                     </span>
                   </div>
@@ -858,6 +863,7 @@ export default function KnowledgeBasePage({ currentUser }) {
           onClose={() => setShowUpload(false)}
           onSuccess={() => { setShowUpload(false); fetchItems() }} />
       )}
+    </div>
     </div>
   )
 }

@@ -7,16 +7,27 @@ import MessageBoard from './pages/MessageBoard'
 import SchedulePage from './pages/SchedulePage'
 import AdminApprovalPage from './pages/AdminApprovalPage'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
+import ProfilePage from './pages/ProfilePage'
 
 const LEVEL_LABELS = { 1: '牛馬', 2: '社畜', 3: '管理員' }
 
+// ── 設計系統色彩 ─────────────────────────────────────────────────
+const C = {
+  navy800: '#1B3A5C',
+  navy700: '#1E4D7B',
+  navy600: '#2563A8',
+  navy100: '#E0EAF5',
+  pageBg: '#F5F3EE',
+}
+
 function getTabs(level) {
   const tabs = [
-    { id: 'schedule', label: '班表' },
-    { id: 'messages', label: '心情留言板' },
+    { id: 'schedule',  label: '班表',      icon: 'calendar' },
+    { id: 'messages',  label: '心情留言板', icon: 'message' },
+    { id: 'knowledge', label: '業務資料庫', icon: 'database' },
   ]
-  if (level >= 1) tabs.push({ id: 'knowledge', label: '業務資料庫' })
-  if (level >= 3) tabs.push({ id: 'admin', label: '帳號審核' })
+  if (level >= 3) tabs.push({ id: 'admin', label: '帳號審核', icon: 'shield' })
+  tabs.push({ id: 'profile', label: '個人設定', icon: 'user' })
   return tabs
 }
 
@@ -35,13 +46,7 @@ async function fetchUserData(user) {
 
   if (employee) {
     const level = profile?.level ?? 1
-    return {
-      user,
-      level,
-      levelLabel: LEVEL_LABELS[level] ?? '未知',
-      name: employee.name,
-      status: 'approved',
-    }
+    return { user, level, levelLabel: LEVEL_LABELS[level] ?? '未知', name: employee.name, status: 'approved' }
   }
 
   const { data: reg } = await supabase
@@ -52,8 +57,7 @@ async function fetchUserData(user) {
 
   if (!reg && profile?.level >= 3) {
     return {
-      user,
-      level: profile.level,
+      user, level: profile.level,
       levelLabel: LEVEL_LABELS[profile.level] ?? '管理員',
       name: profile.name || user.email.split('@')[0],
       status: 'approved',
@@ -61,20 +65,77 @@ async function fetchUserData(user) {
   }
 
   return {
-    user,
-    level: profile?.level ?? 1,
+    user, level: profile?.level ?? 1,
     levelLabel: LEVEL_LABELS[profile?.level ?? 1] ?? '未知',
     name: profile?.name || user.email.split('@')[0],
     status: reg?.status ?? 'none',
   }
 }
 
-function App() {
-  const [page, setPage]           = useState('loading')
-  const [currentUser, setCurrentUser] = useState(null)
-  const [activeTab, setActiveTab] = useState('schedule')
+// ── 導覽圖示 SVG ─────────────────────────────────────────────────
+function NavIcon({ name, active }) {
+  const color = active ? '#fff' : '#93B8D8'
+  const s = { width: 20, height: 20, flexShrink: 0 }
+  if (name === 'calendar') return (
+    <svg style={s} fill="none" stroke={color} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+  if (name === 'message') return (
+    <svg style={s} fill="none" stroke={color} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  )
+  if (name === 'database') return (
+    <svg style={s} fill="none" stroke={color} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3M4 7v5c0 1.657 3.582 3 8 3s8-1.343 8-3V7M4 12v5c0 1.657 3.582 3 8 3s8-1.343 8-3v-5" />
+    </svg>
+  )
+  if (name === 'shield') return (
+    <svg style={s} fill="none" stroke={color} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  )
+  if (name === 'user') return (
+    <svg style={s} fill="none" stroke={color} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  )
+  return null
+}
 
-  // 啟動時檢查是否已有登入 session
+// ── Logo ────────────────────────────────────────────────────────
+function Logo() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '24px 20px 20px' }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 10,
+        background: C.navy600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <svg width="20" height="20" fill="none" stroke="#fff" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      </div>
+      <div style={{ lineHeight: 1.2 }}>
+        <div style={{ color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>三大二中</div>
+        <div style={{ color: '#93B8D8', fontSize: 10, fontWeight: 500 }}>員工內網系統</div>
+      </div>
+    </div>
+  )
+}
+
+function App() {
+  const [page, setPage]               = useState('loading')
+  const [currentUser, setCurrentUser] = useState(null)
+  const [activeTab, setActiveTab]     = useState('schedule')
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
@@ -101,20 +162,15 @@ function App() {
   // ── 載入中 ──
   if (page === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">載入中...</p>
+      <div style={{ minHeight: '100vh', background: C.pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#999', fontSize: 14 }}>載入中...</p>
       </div>
     )
   }
 
   // ── 登入頁 ──
   if (page === 'login') {
-    return (
-      <LoginPage
-        onLogin={handleLogin}
-        onRegister={() => setPage('register')}
-      />
-    )
+    return <LoginPage onLogin={handleLogin} onRegister={() => setPage('register')} />
   }
 
   // ── 申請帳號頁 ──
@@ -129,51 +185,120 @@ function App() {
 
   // ── 主系統 ──
   const tabs = getTabs(currentUser?.level ?? 1)
+  const initials = (currentUser?.name?.[0] || '我').toUpperCase()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 頂部導覽列 */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <span className="font-semibold text-gray-900 text-sm">三大二中員工內網系統</span>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 hidden sm:inline">{currentUser?.name}</span>
-            <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2.5 py-1 rounded-full">
-              Lv{currentUser?.level}・{currentUser?.levelLabel}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-gray-400 hover:text-gray-600 transition cursor-pointer"
-            >
-              登出
-            </button>
+    <div style={{ display: 'flex', minHeight: '100vh', background: C.pageBg }}>
+
+      {/* ── 左側欄 ── */}
+      <aside style={{
+        width: 200,
+        minWidth: 200,
+        background: C.navy800,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        zIndex: 30,
+      }}>
+        {/* Logo */}
+        <Logo />
+
+        {/* 分隔線 */}
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '0 16px 12px' }} />
+
+        {/* 導覽項目 */}
+        <nav style={{ flex: 1, padding: '0 10px', overflowY: 'auto' }}>
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: 'none',
+                  cursor: 'pointer',
+                  marginBottom: 2,
+                  background: isActive ? 'rgba(255,255,255,0.13)' : 'transparent',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+              >
+                <NavIcon name={tab.icon} active={isActive} />
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? '#fff' : '#93B8D8',
+                  letterSpacing: 0.3,
+                }}>
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <div style={{
+                    width: 3, height: 20, borderRadius: 2,
+                    background: '#fff',
+                    marginLeft: 'auto',
+                    opacity: 0.7,
+                  }} />
+                )}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* ── 底部使用者資訊 ── */}
+        <div style={{ padding: '12px 14px 20px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: C.navy600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0,
+            }}>
+              {initials}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentUser?.name}
+              </div>
+              <div style={{ color: '#93B8D8', fontSize: 10, marginTop: 1 }}>
+                Lv{currentUser?.level}・{currentUser?.levelLabel}
+              </div>
+            </div>
           </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%', padding: '7px 0', borderRadius: 8,
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#93B8D8', fontSize: 12, cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.13)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
+          >
+            登出
+          </button>
         </div>
+      </aside>
 
-        {/* 分頁標籤 */}
-        <div className="max-w-6xl mx-auto px-4 flex gap-1 border-t border-gray-100">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={[
-                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition cursor-pointer',
-                activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700',
-              ].join(' ')}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <main className="w-full">
-        {activeTab === 'schedule'   && <SchedulePage currentUser={currentUser} />}
-        {activeTab === 'messages'   && <MessageBoard currentUser={currentUser} />}
-        {activeTab === 'knowledge'  && <KnowledgeBasePage currentUser={currentUser} />}
-        {activeTab === 'admin'      && <AdminApprovalPage />}
+      {/* ── 主內容區 ── */}
+      <main style={{ marginLeft: 200, flex: 1, minWidth: 0 }}>
+        {activeTab === 'schedule'  && <SchedulePage currentUser={currentUser} />}
+        {activeTab === 'messages'  && <MessageBoard currentUser={currentUser} />}
+        {activeTab === 'knowledge' && <KnowledgeBasePage currentUser={currentUser} />}
+        {activeTab === 'admin'     && <AdminApprovalPage />}
+        {activeTab === 'profile'   && <ProfilePage currentUser={currentUser} onUserUpdate={setCurrentUser} />}
       </main>
     </div>
   )

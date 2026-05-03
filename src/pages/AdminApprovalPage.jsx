@@ -122,7 +122,12 @@ export default function AdminApprovalPage() {
   const LEVEL_LABELS = { 1: '牛馬', 2: '社畜', 3: '管理員' }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-10">
+    <div style={{ background: '#F5F3EE', minHeight: '100vh' }}>
+    <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#2C2C2C' }}>帳號審核</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>管理待審核申請與帳號設定</p>
+      </div>
 
       {/* ── 待審核申請 ── */}
       <section>
@@ -262,6 +267,7 @@ export default function AdminApprovalPage() {
           </div>
         </>
       )}
+    </div>
     </div>
   )
 }
